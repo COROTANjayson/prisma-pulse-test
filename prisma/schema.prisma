@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        String       @id
+  email                     String       @unique
+  name                      String?
+  password                  String
+  isEmailVerified           Boolean      @default(false)
+  verifyEmailToken          String?
+  verifyEmailTokenLastSent  DateTime?
+  forgotPasswordToken       String?
+  forgotPasswordTokenExpiry DateTime?
+  sessions                  Session[]
+  teamMembers               TeamMember[]
+  ownedTeams                Team[]
+
+  goalsOwned      Goal[]     @relation("OwnerRelationGoal")
+  goalsCreated    Goal[]     @relation("CreatorRelationGoal")
+  headlineOwned   Headline[] @relation("OwnerRelationHeadline")
+  headlineCreated Headline[] @relation("CreatorRelationHeadline")
+  issueOwned      Issue[]    @relation("CreatorRelationIssue")
+  issueCreated    Issue[]    @relation("OwnerRelationIssue")
+  TodoOwned       Todo[]     @relation("CreatorRelationTodo")
+  TodoCreated     Todo[]     @relation("OwnerRelationTodo")
+  KpiOwned        Kpi[]      @relation("CreatorRelationKpi")
+  KpiCreated      Kpi[]      @relation("OwnerRelationKpi")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+}
+
+model Team {
+  id               String       @id @default(cuid())
+  name             String
+  ownerId          String
+  owner            User         @relation(fields: [ownerId], references: [id])
+  description      String?
+  start_date       DateTime     @default(now())
+  start_time       String       @default("")
+  weekly_start_day String       @default("")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  members          TeamMember[]
+  goals            Goal[]
+  Headline         Headline[]
+  Issue            Issue[]
+  Todo             Todo[]
+  Kpi              Kpi[]
+  agenda           TeamAgenda[]
+}
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  teamId     String
+  userId     String
+  isAccepted Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  team       Team     @relation(fields: [teamId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model Goal {
+  id        String   @id @default(cuid())
+  name      String
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  notes     String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], name: "OwnerRelationGoal")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  dueDate   DateTime
+  creatorId String
+  status    String
+  creator   User?    @relation(fields: [creatorId], references: [id], name: "CreatorRelationGoal")
+  Issue     Issue[]
+  Todo      Todo[]
+}
+
+model Headline {
+  id        String   @id @default(cuid())
+  name      String
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  notes     String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], name: "OwnerRelationHeadline")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  creatorId String
+  creator   User?    @relation(fields: [creatorId], references: [id], name: "CreatorRelationHeadline")
+  status    String
+  Issue     Issue[]
+  Todo      Todo[]
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  name        String
+  teamId      String
+  team        Team        @relation(fields: [teamId], references: [id])
+  notes       String
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], name: "OwnerRelationIssue")
+  issueId     String?
+  successor   Issue?      @relation("SubIssue", fields: [issueId], references: [id], onDelete: SetNull)
+  predecessor Issue[]     @relation("SubIssue")
+  goalId      String?
+  goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  headlineId  String?
+  headline    Headline?   @relation(fields: [headlineId], references: [id], onDelete: SetNull)
+  kpiId       String?
+  kpi         Kpi?        @relation(fields: [kpiId], references: [id], onDelete: SetNull)
+  todoId      String?
+  todos       TodoIssue[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  dueDate     DateTime
+  creatorId   String
+  status      String
+  creator     User?       @relation(fields: [creatorId], references: [id], name: "CreatorRelationIssue")
+}
+
+model Todo {
+  id          String      @id @default(cuid())
+  name        String
+  teamId      String
+  team        Team        @relation(fields: [teamId], references: [id])
+  notes       String
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], name: "OwnerRelationTodo")
+  todoId      String?
+  successor   Todo?       @relation("SubTodo", fields: [todoId], references: [id], onDelete: SetNull)
+  predecessor Todo[]      @relation("SubTodo")
+  goalId      String?
+  goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  headlineId  String?
+  headline    Headline?   @relation(fields: [headlineId], references: [id], onDelete: SetNull)
+  kpiId       String?
+  kpi         Kpi?        @relation(fields: [kpiId], references: [id])
+  issueId     String?
+  issues      TodoIssue[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  dueDate     DateTime
+  creatorId   String
+  status      String
+  creator     User?       @relation(fields: [creatorId], references: [id], name: "CreatorRelationTodo")
+}
+
+model TodoIssue {
+  todoId  String
+  issueId String
+  todo    Todo?  @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  issue   Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@id([todoId, issueId])
+}
+
+model Kpi {
+  id            String      @id @default(cuid())
+  name          String
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id])
+  ownerId       String
+  owner         User        @relation(fields: [ownerId], references: [id], name: "CreatorRelationKpi")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  creatorId     String
+  creator       User?       @relation(fields: [creatorId], references: [id], name: "OwnerRelationKpi")
+  unitOfMeasure String
+  operator      String
+  goal          Int
+  status        String
+  Todo          Todo[]
+  Issue         Issue[]
+  scores        KpiScores[]
+}
+
+model KpiScores {
+  id        String   @id @default(cuid())
+  date      String
+  value     BigInt
+  kpiId     String
+  kpi       Kpi      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamAgenda {
+  id        String   @id @default(cuid())
+  name      String
+  minutes   Int
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
